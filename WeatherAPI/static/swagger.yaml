@@ -1,0 +1,249 @@
+openapi: 3.0.1
+info:
+  title: API Meteorológica
+  description: |
+    Esta API proporciona información meteorológica obtenida de OpenWeatherMap.
+    Permite consultar datos climáticos completos o específicos de temperatura
+    para cualquier ciudad disponible en la base de datos de OpenWeatherMap.
+  version: 1.2.0
+
+servers:
+  - url: http://localhost:8000
+    description: Servidor local de desarrollo
+  - url: https://api.openweathermap.org/data/2.5/forecast
+    description: Servidor de OpenWeatherMap
+
+tags:
+  - name: Home
+  - name: City
+    description: Endpoint que muestra un pronostico climático de una ciudad
+  - name: Temperatura
+    description: Endpoint de datos de temperatura max, min y media.
+
+paths:
+  /:
+    get:
+      tags: [Home]
+      summary: Página de inicio
+      description: Muestra una página HTML con información sobre cómo usar la API
+      responses:
+        '200':
+          description: Página HTML de bienvenida
+          content:
+            text/html:
+              example: |
+                <html lang="es">
+                    <head>
+                        <meta charset="UTF-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>Document</title>
+                    </head>
+                    <body>
+                        <h1>¡Bienvenido! ☀️</h1>
+                        <p>Esta API proporciona datos de temperatura de una ciudad seleccionada.</p>
+                        <h3>Uso del endpoint</h3>
+                        <p><strong>Ejemplo:</strong> http://ip:port/city_name/temp <br>Por favor, prueba estos endpoints:</p>
+                        <ul>
+                            <li><a href="/barranquilla/">/barranquilla</a> -> Introduce nombre de una ciudad: muestra datos climaticos de una ciudad especifico</li>
+                            <li><a href="/barranquilla/temp">/barranquilla/temp</a> -> Permite mostrar datos detallados de la temperatura</li>
+                        </ul>
+                        <p>Documentación interactiva: <a href="/docs">/docs</a></p>
+                    </body>
+                </html>
+
+  /{city_name}:
+    get:
+      tags: [City]
+      summary: Pronóstico
+      description: Obtiene el pronóstico meteorológico de una ciudad específica
+      parameters:
+        - name: city_name
+          in: path
+          required: true
+          description: Nombre de la ciudad a consultar
+          schema:
+            type: string
+          example: barranquilla
+      responses:
+        '200':
+          description: Pronóstico obtenido exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CityForecast'
+              example:
+                id_city: 3688689
+                city_name: "Barranquilla"
+                country: "CO"
+                forecast:
+                  - clima:
+                      temp: 28.5
+                      feels_like: 32.1
+                      temp_min: 27.8
+                      temp_max: 29.3
+                      pressure: 1012
+                      humidity: 78
+                      sea_level: 1012
+                    date: "2023-05-15 12:00:00"
+        '404':
+          description: Ciudad no encontrada
+          content:
+            application/json:
+              example:
+                error: "Not Found"
+                message: "La ciudad no existe"
+                status_code: 404
+        '502':
+          description: Error en el servidor externo
+          content:
+            application/json:
+              example:
+                error: "Bad Gateway"
+                message: "Fallas en la api externa"
+                status_code: 502
+
+  /{city_name}/temp:
+    get:
+      tags: [Temperatura]
+      summary: Datos de temperatura
+      description: Obtiene información de temperatura de una ciudad
+      parameters:
+        - name: city_name
+          in: path
+          required: true
+          description: Nombre de la ciudad a consultar
+          schema:
+            type: string
+          example: barranquilla/temp
+      responses:
+        '200':
+          description: Datos de temperatura obtenidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemperatureResponse'
+              example:
+                date: "2023-05-15 12:00:00"
+                temp:
+                  max: 29.3
+                  min: 27.8
+                  media: 28.5
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  schemas:
+    TemperatureDetails:
+      type: object
+      properties:
+        temp:
+          type: number
+          format: float
+          description: Temperatura actual en °C
+        feels_like:
+          type: number
+          format: float
+          description: Sensación térmica en °C
+        temp_min:
+          type: number
+          format: float
+          description: Temperatura mínima en °C
+        temp_max:
+          type: number
+          format: float
+          description: Temperatura máxima en °C
+        pressure:
+          type: number
+          format: float
+          description: Presión atmosférica en hPa
+        humidity:
+          type: number
+          format: float
+          description: Humedad relativa en %
+        sea_level:
+          type: number
+          format: float
+          description: Presión al nivel del mar en hPa
+      required:
+        - temp
+        - feels_like
+        - temp_min
+        - temp_max
+        - pressure
+        - humidity
+
+    ForecastItem:
+      type: object
+      properties:
+        clima:
+          $ref: '#/components/schemas/TemperatureDetails'
+        date:
+          type: string
+          format: date-time
+          description: Fecha y hora del pronóstico (YYYY-MM-DD HH:MM:SS)
+      required:
+        - clima
+        - date
+
+    CityForecast:
+      type: object
+      properties:
+        id_city:
+          type: integer
+          description: ID de la ciudad en OpenWeatherMap
+        city_name:
+          type: string
+          description: Nombre de la ciudad
+        country:
+          type: string
+          description: Código de país
+        forecast:
+          type: array
+          items:
+            $ref: '#/components/schemas/ForecastItem'
+          description: Lista de pronósticos por intervalo de tiempo
+      required:
+        - id_city
+        - city_name
+        - country
+        - forecast
+
+    TemperatureResponse:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date-time
+          description: Fecha y hora del pronóstico
+        temp:
+          type: object
+          properties:
+            max:
+              type: number
+              format: float
+              description: Temperatura máxima en °C
+            min:
+              type: number
+              format: float
+              description: Temperatura mínima en °C
+            media:
+              type: number
+              format: float
+              description: Temperatura media en °C
+          required:
+            - max
+            - min
+            - media
+      required:
+        - date
+        - temp
+
+  responses:
+    NotFound:
+      description: Ciudad no encontrada
+      content:
+        application/json:
+          example:
+            error: "Not Found"
+            message: "La ciudad no existe"
+            status_code: 404
